@@ -1,0 +1,1 @@
+CLI marking program, plain simple. Compare pixel darknesses from the answer key to the student sheet. 
