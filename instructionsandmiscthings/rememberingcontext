@@ -1,0 +1,5 @@
+"Restore context for my ASET automated marking system project. The system reads scanned multiple choice answer sheets, detects filled bubbles with computer vision, marks Reading, Maths, and Abstract using a JSON answer key, determines strengths and weaknesses using a JSON concept mapping with a 51 percent rule, accepts a manual writing score, and generates a full PDF report.
+
+It includes batch processing, an admin panel, a scan quality checker, and a print all reports button. It runs as a simple web app with no database and uses in memory storage for the answer key and mapping. The total project cost is $3,500 with two minor updates, hosting covered until March, and optional cheap domain.
+
+Pick up exactly where we left off based on this context."

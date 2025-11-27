@@ -1,0 +1,299 @@
+You are a senior full stack engineer. I want you to design and generate the full codebase for a small but real product.
+
+Build an ASET automated marking system with the following requirements:
+
+High level goals
+
+Read scanned multiple choice answer sheets for ASET style exams
+
+Detect which bubbles are filled for each question
+
+Mark Reading, Maths, and Abstract sections automatically using an answer key that I provide as JSON
+
+Work out strengths and weaknesses based on which questions belong to which learning areas, also provided as JSON
+
+Fill out an existing PDF report format and generate a ready to send report for each student
+
+Only require manual entry of the writing score
+
+Run as a small web app that I can host myself, with a simple admin panel and a single main page for marking
+
+Do not use any database, keep everything in memory for the current session
+
+Technology stack
+
+Backend: Python, FastAPI
+
+Computer vision: Python, OpenCV
+
+PDF generation: Python, use a simple library like reportlab or fpdf
+
+Frontend: React with a simple clean layout (no design system required, just CSS)
+
+Bundling: Vite or CRA is fine
+
+Hosting assumption: frontend on Vercel, backend on Render or Railway
+
+No authentication required for now
+
+Core concepts and data
+
+Answer key JSON
+
+One JSON file loaded by the admin
+
+Example structure:
+
+{
+  "reading": { "1": "C", "2": "A", "3": "D" },
+  "quantitative": { "1": "B", "2": "D" },
+  "abstract": { "1": "A", "2": "C" }
+}
+
+
+Concept mapping JSON
+
+One JSON file that maps learning areas / concepts to question numbers
+
+Example structure:
+
+{
+  "quantitative": {
+    "fractions": [4, 14, 20, 24, 29, 30, 34],
+    "algebra": [6, 23, 26, 27, 32, 33]
+  },
+  "reading": {
+    "main_idea": [1, 2, 5, 9, 30],
+    "inference": [3, 6, 18, 22, 28, 34]
+  },
+  "abstract": {
+    "patterns": [1, 2, 3],
+    "shape": [4, 5, 6]
+  }
+}
+
+
+Strength or weakness logic
+
+For each concept, count how many of those questions the student got correct
+
+If correct / total >= 0.51 then mark that concept as “done well”
+
+Else mark as “needs improvement”
+
+Computer vision and answer detection
+
+Input is a scanned answer sheet image (JPG or PNG, potentially a PDF converted to image)
+
+The answer sheet has a fixed template for bubbles
+
+Use OpenCV to:
+
+Convert to grayscale
+
+Preprocess with blur and threshold
+
+Align the sheet to a template (simple alignment, assume not too skewed)
+
+Identify bubble regions using either contour detection or fixed positions
+
+For each bubble region, measure pixel darkness or mean intensity
+
+If the darkness is above a threshold, treat that bubble as filled
+
+Map filled bubbles to question numbers and choices (A, B, C, D)
+
+Output a simple Python dict like:
+
+{
+  "reading": {"1": "C", "2": "A", ...},
+  "quantitative": {"1": "B", ...},
+  "abstract": {"1": "D", ...}
+}
+
+
+Scan quality checker
+
+Before marking, quickly check:
+
+Overall brightness
+
+Overall skew or rotation (roughly)
+
+If the scan seems very dark, very bright, or heavily rotated, return a warning string such as
+
+“Scan looks low quality, please re scan if possible”
+
+This can be simple and heuristic based
+
+Marking logic
+
+Combine the detected answers with the answer key
+
+For each section (reading, quantitative, abstract):
+
+Count correct answers
+
+Compute raw score and percentage
+
+For each concept:
+
+Use concept mapping JSON to look up the question numbers in that concept
+
+Determine if concept is “done well” or “needs improvement” based on the 51 percent rule
+
+PDF report generation
+
+Create a PDF report using a simple, generic layout
+
+I will later adapt it to match a real template, so for now:
+
+Student name
+
+Writing score (manual input)
+
+Section scores for Reading, Maths, Abstract
+
+For each section, list concepts under “Done well” and “Needs improvement”
+
+Some static explanatory text about mock exams, practice, and next steps
+
+Accept a structured Python dict with all the results and generate a PDF file on disk
+
+Return the file path or binary so the frontend can trigger a download
+
+Web app features
+
+Admin panel (single page)
+
+Upload answer key JSON
+
+Upload concept mapping JSON
+
+Show a status summary:
+
+“Answer key loaded”
+
+“Concept mapping loaded”
+
+Optionally show number of reports generated in this session
+
+Main marking page
+
+Inputs:
+
+Student name (text input)
+
+Writing score (numeric input)
+
+Upload scanned answer sheet (file input)
+
+Buttons:
+
+“Generate report”
+
+Behaviour:
+
+When the user clicks “Generate report”, call the backend, which:
+
+Runs the scan quality checker
+
+Reads bubbles
+
+Marks test
+
+Builds PDF
+
+Show any scan warnings returned
+
+Show a link or button to download the PDF report
+
+Batch processing mode
+
+Allow upload of a zip file containing multiple scans, or multiple file selection
+
+For each scan, also accept a CSV or JSON mapping of student names to file names, or just use file names as student IDs
+
+Process all scans in a loop on the backend
+
+Produce individual PDFs for each student
+
+Return them as a zip file for download
+
+Print all reports button
+
+On the frontend, add a button that:
+
+After a batch run, lets me download a zip of PDFs
+
+Optionally opens the system print dialog for all reports
+
+Backend API design
+
+Endpoints (FastAPI):
+
+POST /api/admin/upload_answer_key
+
+POST /api/admin/upload_concepts
+
+POST /api/mark/single (student name, writing score, scan image)
+
+POST /api/mark/batch (zip of scans, plus optional metadata)
+
+Answer key and concept mapping should be stored in memory on the backend so they persist during the server lifetime
+
+Project structure
+
+Backend folder:
+
+main.py for FastAPI app
+
+cv_utils.py for OpenCV functions
+
+marking.py for scoring logic
+
+report.py for PDF generation
+
+models.py for Pydantic models
+
+Frontend folder:
+
+React app with pages: AdminPage, MarkingPage
+
+Simple layout with two tabs or navigation links
+
+Use fetch or axios to call the API
+
+What I want you to output
+
+A high level description of the architecture and file structure
+
+The full FastAPI backend code with clear separation of modules
+
+The core OpenCV functions for:
+
+preprocessing
+
+bubble detection
+
+bubble to answer mapping
+
+The marking and concept analysis code
+
+The PDF generation code for one student report
+
+The React frontend code for:
+
+Admin panel
+
+Single student marking
+
+Batch processing
+
+Example JSON files for answer keys and concept mappings
+
+Instructions for running the backend and frontend locally
+
+Focus on correctness and clarity over micro optimisations.
+Use clear comments so I can modify this later.
+Assume this is the first production version and should be reasonably robust and easy to extend.
