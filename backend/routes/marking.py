@@ -1,3 +1,4 @@
+import json
 from typing import Dict
 
 from fastapi import (
@@ -12,6 +13,7 @@ from fastapi import (
 from fastapi.responses import StreamingResponse
 
 from core.annotate import annotate_incorrect_bubbles, write_section_score
+from core.batch import process_batch_zip
 from core.engine import mark_single_student_papers
 from core.export import build_output_zip
 from core.pdf_tools import pdf_to_images
@@ -136,5 +138,70 @@ async def mark_single_student(
             "Content-Disposition": (
                 f'attachment; filename="{student_name}_annotated_output.zip"'
             )
+        },
+    )
+
+
+@router.post("/batch")
+async def mark_batch(
+    files_zip: UploadFile = File(...),
+    manifest: str = Form(...),
+    session: Dict = Depends(get_session),
+):
+    if files_zip.content_type not in (
+        "application/zip",
+        "application/x-zip-compressed",
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="files_zip must be a ZIP",
+        )
+
+    try:
+        manifest_data = json.loads(manifest)
+        if not isinstance(manifest_data, list):
+            raise ValueError("manifest must be a JSON list")
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid manifest JSON: {exc}",
+        ) from exc
+
+    if "answer_keys" not in session:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Answer keys not loaded for this session.",
+        )
+
+    zip_bytes = await files_zip.read()
+
+    try:
+        out_buf = process_batch_zip(
+            zip_bytes,
+            manifest_data,
+            session.get("answer_keys", {}),
+            session.get("concept_map") or {},
+        )
+    except FileNotFoundError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Missing file in ZIP: {exc}",
+        ) from exc
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        ) from exc
+    except Exception as exc:  # pragma: no cover - batch processing errors
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Batch processing error: {exc}",
+        ) from exc
+
+    return StreamingResponse(
+        out_buf,
+        media_type="application/zip",
+        headers={
+            "Content-Disposition": 'attachment; filename="batch_marked_output.zip"'
         },
     )
